@@ -1,4 +1,5 @@
-FROM nvidia/cuda:11.7.1-runtime-ubuntu22.04
+# FROM nvidia/cuda:11.7.1-runtime-ubuntu22.04
+FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-runtime
   
 # To use a different model, change the model URL below:
 # ARG MODEL_URL='https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt'
@@ -8,10 +9,17 @@ ARG MODEL_URL='https://huggingface.co/Meina/MeinaMix/resolve/main/Meina%20V8%20b
 # access token (https://huggingface.co/settings/tokens) below:
 ARG HF_TOKEN=''
 
-RUN apt update && apt-get -y install git wget \
-    python3.10 python3.10-venv python3-pip \
-    build-essential libgl-dev libglib2.0-0 vim
-RUN ln -s /usr/bin/python3.10 /usr/bin/python
+RUN apt-get -y update && apt-get -y install git wget \
+    libgl-dev libglib2.0-0
+    # python3.10 python3-pip \
+    # python3.10-venv \
+    # build-essential libgl-dev libglib2.0-0 vim
+# RUN ln -s /usr/bin/python3.10 /usr/bin/python
+
+# Install python packages
+RUN pip3 install --upgrade pip
+ADD requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
 
 RUN useradd -ms /bin/bash banana
 WORKDIR /app
@@ -24,21 +32,28 @@ WORKDIR /app/stable-diffusion-webui
 ENV MODEL_URL=${MODEL_URL}
 ENV HF_TOKEN=${HF_TOKEN}
 
-RUN pip install tqdm requests
+RUN pip3 install tqdm requests
 ADD download_checkpoint.py .
 RUN python download_checkpoint.py
 
 ADD prepare.py .
-RUN python prepare.py --skip-torch-cuda-test --xformers --reinstall-torch --reinstall-xformers
+# RUN python prepare.py --skip-torch-cuda-test --xformers --reinstall-torch --reinstall-xformers
+#RUN python prepare.py --skip-torch-cuda-test --xformers --reinstall-xformers
+RUN python prepare.py --skip-torch-cuda-test 
 
 ADD download.py download.py
-RUN python download.py --use-cpu=all
+# RUN python download.py --use-cpu=all
+# RUN python download.py --skip_version_check --use-cpu=all
 
-RUN pip install dill
+RUN pip3 install dill
 
-RUN mkdir -p extensions/banana/scripts
-ADD script.py extensions/banana/scripts/banana.py
+# RUN mkdir -p extensions/banana/scripts
+# ADD script.py extensions/banana/scripts/banana.py
 ADD app.py app.py
-ADD server.py server.py
+# ADD server.py server.py
 
-CMD ["python", "server.py", "--xformers", "--disable-safe-unpickle", "--lowram", "--no-hashing", "--listen", "--port", "8000"]
+# CMD ["python", "server.py", "--xformers", "--disable-safe-unpickle", "--lowram", "--no-hashing", "--listen", "--port", "8000"]
+
+EXPOSE 8000
+
+CMD python -u app.py --port 8000 --disable-safe-unpickle --lowram --no-hashing --xformers --listen
